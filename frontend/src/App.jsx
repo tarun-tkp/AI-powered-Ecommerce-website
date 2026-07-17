@@ -1,80 +1,78 @@
-import React, { useState } from 'react';
-import ChatWindow from './components/ChatWindow';
-import ChatInput from './components/ChatInput';
-import { sendMessageGet } from './services/api';
-import './App.css';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
+import { ChatProvider } from './contexts/ChatContext';
+import MainLayout from './layouts/MainLayout';
+import HomePage from './pages/HomePage';
+import ProductsPage from './pages/ProductsPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import CartPage from './pages/CartPage';
+import CheckoutPage from './pages/CheckoutPage';
+import OrdersPage from './pages/OrdersPage';
+import WishlistPage from './pages/WishlistPage';
+import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
 
-function App() {
-  const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+function PrivateRoute({ children }) {
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" replace />;
+}
 
-  const handleSendMessage = async (message) => {
-    setMessages((prev) => [...prev, { content: message, isUser: true }]);
-    setIsLoading(true);
-    setError(null);
+function AdminRoute({ children }) {
+  const { user, isAdmin } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
+  return children;
+}
 
-    try {
-      const response = await sendMessageGet(message);
-      setMessages((prev) => [...prev, { content: response.answer, isUser: false }]);
-    } catch (err) {
-      setError(err.message);
-      setMessages((prev) => [
-        ...prev,
-        { content: `Error: ${err.message}. Please try again.`, isUser: false },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClearChat = () => {
-    setMessages([]);
-    setError(null);
-  };
-
-  const handleSuggestion = (text) => {
-    handleSendMessage(text);
-  };
-
+function AppRoutes() {
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-content">
-          <div className="logo">
-            <div className="logo-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <h1>AI Chat</h1>
-            <span className="logo-badge">Llama 3.3</span>
-          </div>
-          <button className="clear-button" onClick={handleClearChat}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-            </svg>
-            Clear
-          </button>
-        </div>
-      </header>
-
-      <main className="app-main">
-        <ChatWindow messages={messages} isLoading={isLoading} onSuggestion={handleSuggestion} />
-        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
-      </main>
-
-      {error && (
-        <div className="error-toast">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="close-error">×</button>
-        </div>
-      )}
-    </div>
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/:id" element={<ProductDetailPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />
+        <Route path="/checkout" element={<PrivateRoute><CheckoutPage /></PrivateRoute>} />
+        <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
+        <Route path="/wishlist" element={<PrivateRoute><WishlistPage /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
+          <ChatProvider>
+            <AppRoutes />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: '#1a1a24',
+                  color: '#f0f0f5',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  fontSize: '14px',
+                },
+                success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+                error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+              }}
+            />
+          </ChatProvider>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
