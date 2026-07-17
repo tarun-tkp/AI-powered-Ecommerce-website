@@ -1,74 +1,95 @@
 import axios from 'axios';
 
-// Base URL for the backend API (using Vite proxy)
-const API_BASE_URL = '/api/chat';
-
-// Create axios instance with default configuration
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 30000, // 30 seconds timeout
+  baseURL: '/api',
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 });
 
-/**
- * Send a message to the AI using GET request
- * @param {string} message - The user's message
- * @returns {Promise} Promise with the AI response
- */
-export const sendMessageGet = async (message) => {
-  try {
-    const response = await api.get('', {
-      params: { message },
-    });
-    return response.data;
-  } catch (error) {
-    throw handleApiError(error);
+// Attach JWT token to every request
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('shopai_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  res => res.data,
+  err => {
+    const msg = err.response?.data?.message || err.message || 'An error occurred';
+    return Promise.reject(new Error(msg));
   }
+);
+
+export const authAPI = {
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
 };
 
-/**
- * Send a message to the AI using POST request
- * @param {string} message - The user's message
- * @returns {Promise} Promise with the AI response
- */
-export const sendMessagePost = async (message) => {
-  try {
-    const response = await api.post('', {
-      message,
-    });
-    return response.data;
-  } catch (error) {
-    throw handleApiError(error);
-  }
+export const productAPI = {
+  getAll: (params) => api.get('/products', { params }),
+  getById: (id) => api.get(`/products/${id}`),
+  getFeatured: () => api.get('/products/featured'),
+  getTopRated: () => api.get('/products/top-rated'),
+  getBestSellers: () => api.get('/products/best-sellers'),
+  getSimilar: (id, categoryId) => api.get(`/products/${id}/similar`, { params: { categoryId } }),
+  search: (q, page = 0, size = 12) => api.get('/products/search', { params: { q, page, size } }),
 };
 
-/**
- * Handle API errors and return user-friendly error messages
- * @param {Error} error - The error object
- * @returns {Error} Error with user-friendly message
- */
-const handleApiError = (error) => {
-  if (error.response) {
-    // Server responded with error status
-    const status = error.response.status;
-    const data = error.response.data;
-    
-    if (status === 400) {
-      return new Error(data.message || 'Bad Request: Invalid input');
-    } else if (status === 500) {
-      return new Error(data.message || 'Server Error: Please try again later');
-    } else {
-      return new Error(data.message || `Error: ${status}`);
-    }
-  } else if (error.request) {
-    // Request made but no response received
-    return new Error('Network Error: No response from server');
-  } else {
-    // Error in setting up the request
-    return new Error('Error: Failed to send request');
-  }
+export const categoryAPI = {
+  getAll: () => api.get('/categories'),
+};
+
+export const cartAPI = {
+  getCart: () => api.get('/cart'),
+  addItem: (data) => api.post('/cart', data),
+  updateItem: (itemId, data) => api.put(`/cart/${itemId}`, data),
+  removeItem: (itemId) => api.delete(`/cart/${itemId}`),
+  clearCart: () => api.delete('/cart'),
+};
+
+export const wishlistAPI = {
+  getAll: () => api.get('/wishlist'),
+  toggle: (productId) => api.post(`/wishlist/${productId}`),
+  check: (productId) => api.get(`/wishlist/${productId}/check`),
+};
+
+export const orderAPI = {
+  place: (data) => api.post('/orders', data),
+  getAll: () => api.get('/orders'),
+  getById: (id) => api.get(`/orders/${id}`),
+};
+
+export const reviewAPI = {
+  getByProduct: (productId) => api.get(`/reviews/product/${productId}`),
+  add: (productId, data) => api.post(`/reviews/product/${productId}`, data),
+  getSummary: (productId, productName) => api.get(`/reviews/product/${productId}/summary`, { params: { productName } }),
+};
+
+export const couponAPI = {
+  validate: (code, orderAmount) => api.get(`/coupons/validate/${code}`, { params: { orderAmount } }),
+};
+
+export const chatAPI = {
+  sendMessage: (message) => api.get('/chat', { params: { message } }),
+};
+
+export const adminAPI = {
+  getDashboard: () => api.get('/admin/dashboard'),
+  getProducts: (params) => api.get('/products', { params }),
+  createProduct: (data) => api.post('/admin/products', data),
+  updateProduct: (id, data) => api.put(`/admin/products/${id}`, data),
+  deleteProduct: (id) => api.delete(`/admin/products/${id}`),
+  getCategories: () => api.get('/admin/categories'),
+  createCategory: (data) => api.post('/admin/categories', data),
+  updateCategory: (id, data) => api.put(`/admin/categories/${id}`, data),
+  deleteCategory: (id) => api.delete(`/admin/categories/${id}`),
+  getOrders: (params) => api.get('/admin/orders', { params }),
+  updateOrderStatus: (id, status) => api.put(`/admin/orders/${id}/status`, { status }),
+  getUsers: () => api.get('/admin/users'),
+  getCoupons: () => api.get('/admin/coupons'),
+  createCoupon: (data) => api.post('/admin/coupons', data),
+  deleteCoupon: (id) => api.delete(`/admin/coupons/${id}`),
 };
 
 export default api;
